@@ -19,7 +19,13 @@ def download_image_as_base64(url: str) -> str:
     Downloads an image from a URL and converts it to a base64 string.
     """
     try:
-        response = requests.get(url, timeout=15)
+                account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        if account_sid and auth_token:
+            from requests.auth import HTTPBasicAuth
+            response = requests.get(url, auth=HTTPBasicAuth(account_sid, auth_token), timeout=15)
+        else:
+            response = requests.get(url, timeout=15)
         response.raise_for_status()
         return base64.b64encode(response.content).decode("utf-8")
     except Exception as e:
