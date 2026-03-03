@@ -36,7 +36,9 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     # Respond to Twilio immediately with an empty TwiML response
     return PlainTextResponse(content='<Response></Response>', media_type="application/xml")
 
-async def process_whatsapp_message(sender: str, message: str, media_url: str = None):
+import traceback
+
+def process_whatsapp_message(sender: str, message: str, media_url: str = None):
     """
     Background task to process the incoming message.
     """
@@ -75,6 +77,7 @@ async def process_whatsapp_message(sender: str, message: str, media_url: str = N
                 
         except Exception as e:
             print(f"Error processing receipt pipeline: {e}")
+            traceback.print_exc()
             send_whatsapp_message(sender, "❌ Sorry, I encountered an internal error processing your receipt.")
         return
 
