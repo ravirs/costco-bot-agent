@@ -3,12 +3,12 @@ from fastapi import FastAPI, Request, BackgroundTasks, Form
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 
+load_dotenv()
+
 from utils.twilio import send_whatsapp_message
 from utils.db import supabase
 from utils.scheduler import start_scheduler
 from agents.vision_agent import process_receipt_image
-
-load_dotenv()
 
 app = FastAPI(title="Costco Price Check Agent")
 
