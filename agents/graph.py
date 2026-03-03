@@ -16,13 +16,21 @@ class AgentState(TypedDict):
 def extract_receipt(state: AgentState) -> AgentState:
     """Node 1: Extract receipt items from the image URL."""
     print("Extracting receipt...")
-    receipt = process_receipt_image(state["media_url"])
-    return {"receipt_data": receipt, "messages": [f"Extracted {len(receipt.items)} items."]}
+    try:
+        receipt = process_receipt_image(state["media_url"])
+        return {"receipt_data": receipt, "messages": [f"Extracted {len(receipt.items)} items."]}
+    except Exception as e:
+        print(f"Error extracting receipt: {e}")
+        return {"receipt_data": None, "messages": [f"Failed to extract receipt: {str(e)}"]}
 
 def initial_price_check(state: AgentState) -> AgentState:
     """Node 2: Do an initial price check for the extracted items."""
     print("Performing initial price check...")
-    receipt = state["receipt_data"]
+    receipt = state.get("receipt_data")
+    if not receipt:
+        print("No receipt data to check. Skipping.")
+        return {"items_to_track": [], "messages": ["Skipping price check due to missing receipt."]}
+        
     db_items = []
     
     for item in receipt.items:
@@ -47,7 +55,10 @@ def save_to_database(state: AgentState) -> AgentState:
         print("Supabase not configured, skipping DB save.")
         return {"messages": ["Skipping DB save."]}
         
-    receipt = state["receipt_data"]
+    receipt = state.get("receipt_data")
+    if not receipt:
+        return {"messages": ["Skipping DB save due to missing receipt data."]}
+        
     items = state["items_to_track"]
     
     try:
