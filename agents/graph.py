@@ -2,7 +2,6 @@ import os
 from typing import Dict, List, Any, TypedDict
 from langgraph.graph import StateGraph, END
 from agents.vision_agent import process_receipt_image
-from agents.scraper_agent import check_item_price
 from utils.db import supabase
 from models.schemas import DBItem, ExtractedReceipt
 
@@ -23,30 +22,26 @@ def extract_receipt(state: AgentState) -> AgentState:
         print(f"Error extracting receipt: {e}")
         return {"receipt_data": None, "messages": [f"Failed to extract receipt: {str(e)}"]}
 
-def initial_price_check(state: AgentState) -> AgentState:
-    """Node 2: Do an initial price check for the extracted items."""
-    print("Performing initial price check...")
+def prepare_items(state: AgentState) -> AgentState:
+    """Node 2: Convert extracted items into DB items for tracking."""
+    print("Preparing items for tracking...")
     receipt = state.get("receipt_data")
     if not receipt:
-        print("No receipt data to check. Skipping.")
-        return {"items_to_track": [], "messages": ["Skipping price check due to missing receipt."]}
+        print("No receipt data. Skipping.")
+        return {"items_to_track": [], "messages": ["Skipping item prep due to missing receipt."]}
         
     db_items = []
-    
     for item in receipt.items:
-        current_price = check_item_price(item.item_number)
-        
-        # Create a DBItem
         db_item = DBItem(
             receipt_id=receipt.receipt_number,
             item_number=item.item_number,
             name=item.name,
             purchase_price=item.purchase_price,
-            current_price=current_price
+            current_price=None  # Will be checked later by the scheduler
         )
         db_items.append(db_item)
         
-    return {"items_to_track": db_items, "messages": ["Completed initial price check."]}
+    return {"items_to_track": db_items, "messages": [f"Prepared {len(db_items)} items for tracking."]}
 
 def save_to_database(state: AgentState) -> AgentState:
     """Node 3: Save receipt and items to Supabase."""
@@ -85,12 +80,12 @@ def build_receipt_graph():
     workflow = StateGraph(AgentState)
     
     workflow.add_node("extract_receipt", extract_receipt)
-    workflow.add_node("initial_price_check", initial_price_check)
+    workflow.add_node("prepare_items", prepare_items)
     workflow.add_node("save_to_database", save_to_database)
     
     workflow.set_entry_point("extract_receipt")
-    workflow.add_edge("extract_receipt", "initial_price_check")
-    workflow.add_edge("initial_price_check", "save_to_database")
+    workflow.add_edge("extract_receipt", "prepare_items")
+    workflow.add_edge("prepare_items", "save_to_database")
     workflow.add_edge("save_to_database", END)
     
     return workflow.compile()
